@@ -42,7 +42,7 @@ const getRandomSongs = async (count) => {
   }
 };
 
-const postHourlyRecommendation = async () => {
+const postHourlyRecommendation = async (req, res) => {
   const batchSize = 10; // Fetch 10 songs at once
   const songs = await getRandomSongs(batchSize);
 
