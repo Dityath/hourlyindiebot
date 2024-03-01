@@ -16,16 +16,17 @@ const supabaseKey = process.env.SUPABASE_KEY;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function postTweet(tweetText) {
+const postTweet = async (tweetText) => {
   try {
     const tweet = await client.v2.tweet(tweetText);
     return tweet;
   } catch (error) {
-    console.error(`failed to post tweet: ${error}`);
+    console.error(`Failed to post tweet: ${error}`);
+    return null;
   }
-}
+};
 
-async function getRandomSongs() {
+const getRandomSong = async () => {
   try {
     const { data } = await supabase
       .from("songs")
@@ -38,41 +39,40 @@ async function getRandomSongs() {
       return null;
     }
 
-    const randomizer = Math.floor(Math.random() * data.length);
-
-    return data[randomizer];
+    const randomIndex = Math.floor(Math.random() * data.length);
+    return data[randomIndex];
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching song data:", error);
     return null;
   }
-}
+};
 
-async function hourly() {
-  const result = await getRandomSongs();
-  if (result) {
-    postTweet(
-      `your #hourlyindie recommendation\n${result.name} by ${
-        result.artist
-      }\n\n${
-        result.artist_username ? `${result.artist_username} ` : " "
-      }${result.genre
-        .split(", ")
-        .map((genreid) => `#${genreid.replace(/\s/g, "")}`)
-        .join(" ")}\n\n${result.link}`
-    )
-      .then((tweet) => {
-        return supabase
-          .from("songs")
-          .update({ posted: "TRUE", post_id: `${tweet.data.id}` })
-          .eq("id", result.id)
-          .select();
-      })
-      .catch((error) => {
-        console.error("Error updating Supabase:", error);
-      });
-  } else {
-    console.error("No data found.");
+const postHourlyRecommendation = async () => {
+  const song = await getRandomSong();
+  if (!song) {
+    console.error("No valid song data found.");
+    return;
   }
-}
 
-module.exports = hourly;
+  const tweetText = `Your #hourlyindie recommendation:\n${song.name} by ${
+    song.artist
+  }\n\n${song.artist_username ? `${song.artist_username} ` : ""}${song.genre
+    .split(", ")
+    .map((genreId) => `#${genreId.replace(/\s/g, "")}`)
+    .join(" ")}\n\n${song.link}`;
+
+  try {
+    const tweet = await postTweet(tweetText);
+    if (tweet) {
+      await supabase
+        .from("songs")
+        .update({ posted: true, post_id: tweet.data.id })
+        .eq("id", song.id)
+        .select();
+    }
+  } catch (error) {
+    console.error("Error posting tweet or updating Supabase:", error);
+  }
+};
+
+module.exports = postHourlyRecommendation;
