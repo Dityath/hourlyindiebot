@@ -48,6 +48,7 @@ const postHourlyRecommendation = async () => {
 
   if (songs.length === 0) {
     console.error("No valid song data found.");
+    res.status(500).json({ error: "No valid song data found." });
     return;
   }
 
@@ -68,9 +69,14 @@ const postHourlyRecommendation = async () => {
           .update({ posted: true, post_id: tweet.data.id })
           .eq("id", song.id)
           .select();
+
+        res.status(200).json({ tweetId: tweet.data.id });
       }
     } catch (error) {
       console.error("Error posting tweet or updating Supabase:", error);
+      res
+        .status(500)
+        .json({ error: "Error posting tweet or updating Supabase" });
     }
   }
 };
