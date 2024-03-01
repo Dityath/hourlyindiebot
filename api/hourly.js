@@ -33,6 +33,11 @@ async function getRandomSongs() {
       .is("validated", "true")
       .is("posted", "false");
 
+    if (!data || data.length === 0) {
+      console.error("No data found.");
+      return null;
+    }
+
     const randomizer = Math.floor(Math.random() * data.length);
 
     return data[randomizer];
