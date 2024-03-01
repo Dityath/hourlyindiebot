@@ -1,73 +1,30 @@
-const { TwitterApi } = require("twitter-api-v2");
-const { createClient } = require("@supabase/supabase-js");
+const express = require("express");
 const dotenv = require("dotenv");
+const hourly = require("./app/hourly");
+
+const checkAuthorization = require("./app/middleware");
 
 dotenv.config();
 
-const client = new TwitterApi({
-  appKey: process.env.TWITTER_APP_KEY,
-  appSecret: process.env.TWITTER_APP_SECRET,
-  accessToken: process.env.TWITTER_ACCESS_TOKEN,
-  accessSecret: process.env.TWITTER_ACCESS_SECRET,
+const app = express();
+
+const port = process.env.RUNNING_PORT || 8000;
+
+app.get("/", (req, res) => {
+  res.send("hello");
 });
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
+app.get("/api/hourlytweet", checkAuthorization, (req, res) => {
+  hourly();
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+  res.json({ success: "tweet sent" });
+});
 
-async function postTweet(tweetText) {
-  try {
-    const tweet = await client.v2.tweet(tweetText);
-    return tweet;
-  } catch (error) {
-    console.error(`failed to post tweet: ${error}`);
-  }
-}
+app.use((err, res) => {
+  console.error(err);
+  res.status(500).json({ error: "Internal server error" });
+});
 
-async function getRandomSongs() {
-  try {
-    const { data } = await supabase
-      .from("songs")
-      .select("*")
-      .is("validated", "true")
-      .is("posted", "false");
-
-    const randomizer = Math.floor(Math.random() * data.length);
-
-    return data[randomizer];
-  } catch (error) {
-    console.error(error);
-    return null;
-  }
-}
-
-async function hourly() {
-  const result = await getRandomSongs();
-  if (result) {
-    postTweet(
-      `your #hourlyindie recommendation\n${result.name} by ${
-        result.artist
-      }\n\n${
-        result.artist_username ? `${result.artist_username} ` : " "
-      }${result.genre
-        .split(", ")
-        .map((genreid) => `#${genreid.replace(/\s/g, "")}`)
-        .join(" ")}\n\n${result.link}`
-    )
-      .then((tweet) => {
-        return supabase
-          .from("songs")
-          .update({ posted: "TRUE", post_id: `${tweet.data.id}` })
-          .eq("id", result.id)
-          .select();
-      })
-      .catch((error) => {
-        console.error("Error updating Supabase:", error);
-      });
-  } else {
-    console.error("No data found.");
-  }
-}
-
-module.exports = hourly;
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
