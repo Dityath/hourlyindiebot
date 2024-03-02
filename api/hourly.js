@@ -26,16 +26,22 @@ const postTweet = async (tweetText) => {
   }
 };
 
-const getRandomSongs = async (count) => {
+const getRandomSong = async () => {
   try {
     const { data } = await supabase
       .from("songs")
       .select("*")
       .is("validated", "true")
       .is("posted", "false")
-      .limit(count); // Fetch multiple songs
+      .limit(10);
 
-    return data;
+    if (!data || data.length === 0) {
+      console.error("No data found.");
+      return null;
+    }
+
+    const randomIndex = Math.floor(Math.random() * data.length);
+    return data[randomIndex];
   } catch (error) {
     console.error("Error fetching songs:", error);
     return [];
@@ -43,41 +49,38 @@ const getRandomSongs = async (count) => {
 };
 
 const postHourlyRecommendation = async (req, res) => {
-  const batchSize = 10; // Fetch 10 songs at once
-  const songs = await getRandomSongs(batchSize);
+  try {
+    const randomSong = await getRandomSong();
 
-  if (songs.length === 0) {
-    console.error("No valid song data found.");
-    res.status(500).json({ error: "No valid song data found." });
-    return;
-  }
+    if (!randomSong) {
+      console.error("No valid song data found.");
+      res.status(500).json({ error: "No valid song data found." });
+      return;
+    }
 
-  // Process each song
-  for (const song of songs) {
-    const tweetText = `Your #hourlyindie recommendation:\n${song.name} by ${
-      song.artist
-    }\n\n${song.artist_username ? `${song.artist_username} ` : ""}${song.genre
+    const tweetText = `Your #hourlyindie recommendation:\n${
+      randomSong.name
+    } by ${randomSong.artist}\n\n${
+      randomSong.artist_username ? `${randomSong.artist_username} ` : ""
+    }${randomSong.genre
       .split(", ")
       .map((genreId) => `#${genreId.replace(/\s/g, "")}`)
-      .join(" ")}\n\n${song.link}`;
+      .join(" ")}\n\n${randomSong.link}`;
 
-    try {
-      const tweet = await postTweet(tweetText);
-      if (tweet) {
-        await supabase
-          .from("songs")
-          .update({ posted: true, post_id: tweet.data.id })
-          .eq("id", song.id)
-          .select();
+    const tweet = await postTweet(tweetText);
 
-        res.status(200).json({ tweetId: tweet.data.id });
-      }
-    } catch (error) {
-      console.error("Error posting tweet or updating Supabase:", error);
-      res
-        .status(500)
-        .json({ error: "Error posting tweet or updating Supabase" });
+    if (tweet) {
+      await supabase
+        .from("songs")
+        .update({ posted: true, post_id: tweet.data.id })
+        .eq("id", randomSong.id)
+        .select();
+
+      res.status(200).json({ tweetId: tweet.data.id });
     }
+  } catch (error) {
+    console.error("Error posting tweet or updating Supabase:", error);
+    res.status(500).json({ error: "Error posting tweet or updating Supabase" });
   }
 };
 
