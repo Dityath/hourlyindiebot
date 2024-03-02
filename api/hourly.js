@@ -32,8 +32,7 @@ const getRandomSong = async () => {
       .from("songs")
       .select("*")
       .is("validated", "true")
-      .is("posted", "false")
-      .limit(10);
+      .is("posted", "false");
 
     if (!data || data.length === 0) {
       console.error("No data found.");
